@@ -1,0 +1,41 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Siapkan proyek (otomatis ekstrak zip jika ada)
+        run: |
+          if [ ! -f settings.gradle.kts ]; then
+            Z=$(ls *.zip 2>/dev/null | head -1)
+            if [ -n "$Z" ]; then unzip -oq "$Z" -d proj; fi
+          fi
+          S=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
+          [ -n "$S" ] || { echo "settings.gradle.kts tidak ditemukan"; exit 1; }
+          echo "ROOT=$(dirname "$S")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK debug
+        run: cd "$ROOT" && gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CBT-Demo-APK
+          path: ${{ env.ROOT }}/app/build/outputs/apk/debug/*.apk
